@@ -175,7 +175,7 @@ class environment
 template<class T>
 concept unevaluated = requires
 {
-  typename T::value_type;
+  typename T::is_unevaluated;
 };
 
 template<class L, class R>
@@ -220,6 +220,7 @@ using unevaluated_invocable_result_t = std::invoke_result_t<F, evaluated_t<A1>, 
 template<unevaluated E, std::invocable<evaluated_t<E>> F>
 struct op1
 {
+  struct is_unevaluated {};
   using value_type = std::invoke_result_t<F, evaluated_t<E>>;
 
   template<class... Bindings>
@@ -236,6 +237,7 @@ template<class L, class R, std::invocable<evaluated_t<L>, evaluated_t<R>> F>
   requires at_least_one_unevaluated<L,R>
 struct op2
 {
+  struct is_unevaluated {};
   using value_type = std::invoke_result_t<F,evaluated_t<L>,evaluated_t<R>>;
 
   template<class... Bindings>
@@ -253,6 +255,7 @@ struct op2
 template<detail::sl n, class T = int>
 struct variable
 {
+  struct is_unevaluated {};
   constexpr static std::string_view name = n.value;
   using value_type = T;
 
