@@ -267,6 +267,17 @@ EXPRESSION_BINARY_OP(%, modulus);
 
 #undef EXPRESSION_BINARY_OP
 
+// user-defined literal operator allows variable written as literals, For example,
+//
+//     auto var = "block_size"_v;
+//
+// var has type variable<"block_size",int>.
+template<detail::sl n>
+constexpr variable<n> operator""_v()
+{
+  return {};
+}
+
 #if __has_include(<fmt/format.h>)
 
 #include <fmt/format.h>
