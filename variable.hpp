@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <concepts>
 #include <functional>
+#include <iostream>
 #include <string_view>
 #include <tuple>
 #include <utility>
@@ -95,6 +96,12 @@ class environment
     }
 
     template<detail::sl name>
+    friend constexpr decltype(auto) get(const environment& env)
+    {
+      return env.template get<name>();
+    }
+
+    template<detail::sl name>
     constexpr auto erase() const
     {
       if constexpr (contains<name>())
@@ -164,45 +171,16 @@ class environment
     std::tuple<Bindings...> bindings_;
 };
 
-// XXX it might better to name the concept or type "unevaluated"
-//     we don't want to allow the operator overloads to participate unless at least one of the arguments is a variable or a op1 or op2
-//     the operators should be "hidden" friends, not free functions
-
-// XXX an expression is something that can do evaluate(expr, environment)
-//     an expression should also report its type via T::value_type
 template<class T>
-concept expression = true;
+concept unevaluated = true;
 
-template<expression E>
-using expression_value_t = typename E::value_type;
+template<unevaluated U>
+using unevaluated_value_t = typename U::value_type;
 
-
-template<detail::sl n, class T = int>
-struct variable
-{
-  constexpr static std::string_view name = n.value;
-  using value_type = T;
-
-  template<class... Bindings>
-  friend constexpr auto evaluate(variable, environment<Bindings...> env)
-  {
-    if constexpr (env.template contains<n>())
-    {
-      return env.template get<n>();
-    }
-    else
-    {
-      static_assert(env.template contains<n>(), "evaluate(variable,env): variable name not found in environment.");
-      return;
-    }
-  }
-};
-
-
-template<expression E, std::invocable<expression_value_t<E>> F>
+template<unevaluated E, std::invocable<unevaluated_value_t<E>> F>
 struct op1
 {
-  using value_type = std::invoke_result_t<F, expression_value_t<E>>;
+  using value_type = std::invoke_result_t<F, unevaluated_value_t<E>>;
 
   template<class... Bindings>
   friend constexpr auto evaluate(op1 self, environment<Bindings...> env)
@@ -224,24 +202,24 @@ struct unary_plus
   }
 };
 
-template<expression E>
-  requires requires(expression_value_t<E> value) { +value; }
+template<unevaluated E>
+  requires requires(unevaluated_value_t<E> value) { +value; }
 constexpr op1<E,unary_plus> operator+(E expr)
 {
   return {expr, unary_plus()};
 }
 
-template<expression E>
-  requires requires(expression_value_t<E> value) { -value; }
+template<unevaluated E>
+  requires requires(unevaluated_value_t<E> value) { -value; }
 constexpr op1<E, std::negate<>> operator-(E expr)
 {
   return {expr, std::negate()};
 }
 
-template<expression L, expression R, std::invocable<expression_value_t<L>, expression_value_t<R>> F>
+template<unevaluated L, unevaluated R, std::invocable<unevaluated_value_t<L>, unevaluated_value_t<R>> F>
 struct op2
 {
-  using value_type = std::invoke_result_t<F, expression_value_t<L>, expression_value_t<R>>;
+  using value_type = std::invoke_result_t<F, unevaluated_value_t<L>, unevaluated_value_t<R>>;
 
   template<class... Bindings>
   friend constexpr auto evaluate(op2 self, environment<Bindings...> env)
@@ -254,9 +232,11 @@ struct op2
   F op;
 };
 
-// XXX this needs a requires(expression_value_t<L> l, expression_value_t<R> r) { l OP r; }
+
+// XXX this needs a requires(unevaluated_value_t<L> l, unevaluated_value_t<R> r) { l OP r; }
+//     this needs to be a hidden friend of variable and op1 and op2
 #define EXPRESSION_BINARY_OP(OP, FUNCTOR)\
-  template<expression L, expression R>\
+  template<unevaluated L, unevaluated R>\
   constexpr op2<L,R,std::FUNCTOR<>> operator OP (L lhs, R rhs) { return {lhs, rhs, std::FUNCTOR()}; }
 
 EXPRESSION_BINARY_OP(+, plus);
@@ -266,6 +246,33 @@ EXPRESSION_BINARY_OP(/, divides);
 EXPRESSION_BINARY_OP(%, modulus);
 
 #undef EXPRESSION_BINARY_OP
+
+
+template<detail::sl n, class T = int>
+struct variable
+{
+  constexpr static std::string_view name = n.value;
+  using value_type = T;
+
+  friend std::ostream& operator<<(std::ostream& os, variable self)
+  {
+    return os << name;
+  }
+
+  template<class... Bindings>
+  friend constexpr auto evaluate(variable, environment<Bindings...> env)
+  {
+    if constexpr (env.template contains<n>())
+    {
+      return get<n>(env);
+    }
+    else
+    {
+      static_assert(env.template contains<n>(), "evaluate(variable,env): variable name not found in environment.");
+      return;
+    }
+  }
+};
 
 // user-defined literal operator allows variable written as literals, For example,
 //
@@ -298,7 +305,7 @@ struct fmt::formatter<variable<n>>
   }
 };
 
-template<expression E, std::invocable<expression_value_t<E>> F>
+template<unevaluated E, std::invocable<unevaluated_value_t<E>> F>
 struct fmt::formatter<op1<E,F>>
 {
   template<class ParseContext>
@@ -324,7 +331,7 @@ struct fmt::formatter<op1<E,F>>
   }
 };
 
-template<expression L, expression R, std::invocable<expression_value_t<L>, expression_value_t<R>> F>
+template<unevaluated L, unevaluated R, std::invocable<unevaluated_value_t<L>, unevaluated_value_t<R>> F>
 struct fmt::formatter<op2<L,R,F>>
 {
   template<class ParseContext>

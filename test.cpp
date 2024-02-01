@@ -1,6 +1,7 @@
 #include "variable.hpp"
 #include <cassert>
 #include <fmt/core.h>
+#include <iostream>
 
 int main()
 {
@@ -53,7 +54,21 @@ int main()
       // this prints "foo*bar" to the terminal
       fmt::print("{}\n", expr);
     }
+
+    {
+      auto expr = foo / foo;
+      assert((13 / 13) == evaluate(expr, env));
+
+      // this prints "foo/foo" to the terminal
+      fmt::print("{}\n", expr);
+    }
   }
+
+  // this prints "foo" to the terminal
+  std::cout << foo << std::endl;
+
+  // this prints "foo" to the terminal
+  std::cout << "foo"_v << std::endl;
 
   // this prints "foo" to the terminal
   fmt::print("{}\n", foo);
