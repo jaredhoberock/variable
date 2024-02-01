@@ -165,6 +165,8 @@ class environment
     template<detail::sl name>
     constexpr static int find()
     {
+      // XXX if we kept the Bindings... in sorted order,
+      //     we could do a logarithmic search
       return find_beginning_at<name,0>();
     }
 
@@ -205,6 +207,7 @@ template<class T, class... Bindings>
   requires (not unevaluated<T>)
 constexpr T evaluate(const T& value, const environment<Bindings...>&)
 {
+  // XXX when T is a tuple_like, we need to map evaluate across the tuple's elements
   return value;
 }
 
