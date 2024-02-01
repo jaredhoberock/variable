@@ -5,6 +5,8 @@
 
 int main()
 {
+  using namespace fmt;
+
   variable<"foo"> foo;
   static_assert(foo.name == "foo");
 
@@ -19,18 +21,53 @@ int main()
 
     {
       auto expr = +foo;
+      assert("+foo" == format("{}", expr));
       assert(+13 == evaluate(expr, env));
-
-      // this prints "+foo" to the terminal
-      fmt::print("{}\n", expr);
     }
 
     {
       auto expr = -foo;
+      assert("-foo" == format("{}", expr));
       assert(-13 == evaluate(expr, env));
+    }
 
-      // this prints "-foo" to the terminal
-      fmt::print("{}\n", expr);
+    {
+      auto expr = ~foo;
+      assert("~foo" == format("{}", expr));
+      assert(~13 == evaluate(expr, env));
+    }
+
+    {
+      auto expr = 7 + foo;
+      assert("7+foo" == format("{}", expr));
+      assert(7+13 == evaluate(expr, env));
+    }
+
+    {
+      auto expr = foo + 7;
+      assert("foo+7" == format("{}", expr));
+      assert(13 + 7 == evaluate(expr, env));
+    }
+
+    {
+      variable<"bar"> bar;
+      auto new_env = set<"bar">(env, 7);
+
+      auto expr = foo + bar;
+      assert("foo+bar" == format("{}", expr));
+      assert((13 + 7) == evaluate(expr, new_env));
+    }
+
+    {
+      auto expr = foo - 7;
+      assert("foo-7" == format("{}", expr));
+      assert((13 - 7) == evaluate(expr, env));
+    }
+
+    {
+      auto expr = 7 - foo;
+      assert("7-foo" == format("{}", expr));
+      assert((7 - 13) == evaluate(expr, env));
     }
 
     {
@@ -38,29 +75,71 @@ int main()
       auto new_env = set<"bar">(env, 7);
 
       auto expr = foo - bar;
+      assert("foo-bar" == format("{}", expr));
       assert((13 - 7) == evaluate(expr, new_env));
-
-      // this prints "foo-bar" to the terminal
-      fmt::print("{}\n", expr);
     }
 
     {
-      auto bar = "bar"_v;
+      auto expr = foo * 7;
+      assert("foo*7" == format("{}", expr));
+      assert((13 * 7) == evaluate(expr, env));
+    }
+
+    {
+      auto expr = 7 * foo;
+      assert("7*foo" == format("{}", expr));
+      assert((7 * 13) == evaluate(expr, env));
+    }
+
+    {
+      variable<"bar"> bar;
       auto new_env = set<"bar">(env, 7);
 
       auto expr = foo * bar;
+      assert("foo*bar" == format("{}", expr));
       assert((13 * 7) == evaluate(expr, new_env));
-
-      // this prints "foo*bar" to the terminal
-      fmt::print("{}\n", expr);
     }
 
     {
-      auto expr = foo / foo;
-      assert((13 / 13) == evaluate(expr, env));
+      auto expr = foo / 7;
+      assert("foo/7" == format("{}", expr));
+      assert((13 / 7) == evaluate(expr, env));
+    }
 
-      // this prints "foo/foo" to the terminal
-      fmt::print("{}\n", expr);
+    {
+      auto expr = 7 / foo;
+      assert("7/foo" == format("{}", expr));
+      assert((7 / 13) == evaluate(expr, env));
+    }
+
+    {
+      variable<"bar"> bar;
+      auto new_env = set<"bar">(env, 7);
+
+      auto expr = foo / bar;
+      assert("foo/bar" == format("{}", expr));
+      assert((13 / 7) == evaluate(expr, new_env));
+    }
+
+    {
+      auto expr = foo % 7;
+      assert("foo%7" == format("{}", expr));
+      assert((13 % 7) == evaluate(expr, env));
+    }
+
+    {
+      auto expr = 7 / foo;
+      assert("7/foo" == format("{}", expr));
+      assert((7 / 13) == evaluate(expr, env));
+    }
+
+    {
+      variable<"bar"> bar;
+      auto new_env = set<"bar">(env, 7);
+
+      auto expr = foo / bar;
+      assert("foo/bar" == format("{}", expr));
+      assert((13 / 7) == evaluate(expr, new_env));
     }
   }
 
@@ -76,7 +155,7 @@ int main()
   // this prints "foo" to the terminal
   fmt::print("{}\n", "foo"_v);
 
-  // XXX this fails with a reasonable static_assert
+  // this fails with a reasonable static_assert
 //  {
 //    binding<"bar"> b{13};
 //    environment env(b);

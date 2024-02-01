@@ -171,81 +171,83 @@ class environment
     std::tuple<Bindings...> bindings_;
 };
 
+
 template<class T>
-concept unevaluated = true;
+concept unevaluated = requires
+{
+  typename T::value_type;
+};
 
-template<unevaluated U>
-using unevaluated_value_t = typename U::value_type;
+template<class L, class R>
+concept at_least_one_unevaluated =
+  unevaluated<L>
+  or unevaluated<R>
+;
 
-template<unevaluated E, std::invocable<unevaluated_value_t<E>> F>
+template<class T>
+struct evaluated_t_impl
+{
+  using type = T;
+};
+
+template<unevaluated T>
+struct evaluated_t_impl<T>
+{
+  using type = typename T::value_type;
+};
+
+template<class T>
+using evaluated_t = typename evaluated_t_impl<T>::type;
+
+
+// evaluating something that is not an unevaluated is just the identity
+template<class T, class... Bindings>
+  requires (not unevaluated<T>)
+constexpr T evaluate(const T& value, const environment<Bindings...>&)
+{
+  return value;
+}
+
+// at least one of A1 and A2 must be unevaluated
+template<class F, class A1, class A2>
+concept unevaluated_invocable = std::invocable<F, evaluated_t<A1>, evaluated_t<A2>>;
+
+template<class F, class A1, class A2>
+  requires unevaluated_invocable<F,A1,A2>
+using unevaluated_invocable_result_t = std::invoke_result_t<F, evaluated_t<A1>, evaluated_t<A2>>;
+
+
+template<unevaluated E, std::invocable<evaluated_t<E>> F>
 struct op1
 {
-  using value_type = std::invoke_result_t<F, unevaluated_value_t<E>>;
+  using value_type = std::invoke_result_t<F, evaluated_t<E>>;
 
   template<class... Bindings>
-  friend constexpr auto evaluate(op1 self, environment<Bindings...> env)
+  friend constexpr auto evaluate(const op1& self, const environment<Bindings...>& env)
   {
-    return self.op(evaluate(self.expr, env));
+    return self.f(evaluate(self.expr, env));
   }
 
   E expr;
-  F op;
+  F f;
 };
 
-struct unary_plus
-{
-  template<class A>
-    requires requires (A&& arg) { +std::forward<A>(arg); }
-  constexpr decltype(auto) operator()(A&& arg) const
-  {
-    return +std::forward<A>(arg);
-  }
-};
-
-template<unevaluated E>
-  requires requires(unevaluated_value_t<E> value) { +value; }
-constexpr op1<E,unary_plus> operator+(E expr)
-{
-  return {expr, unary_plus()};
-}
-
-template<unevaluated E>
-  requires requires(unevaluated_value_t<E> value) { -value; }
-constexpr op1<E, std::negate<>> operator-(E expr)
-{
-  return {expr, std::negate()};
-}
-
-template<unevaluated L, unevaluated R, std::invocable<unevaluated_value_t<L>, unevaluated_value_t<R>> F>
+template<class L, class R, std::invocable<evaluated_t<L>, evaluated_t<R>> F>
+  requires at_least_one_unevaluated<L,R>
 struct op2
 {
-  using value_type = std::invoke_result_t<F, unevaluated_value_t<L>, unevaluated_value_t<R>>;
+  using value_type = std::invoke_result_t<F,evaluated_t<L>,evaluated_t<R>>;
 
   template<class... Bindings>
-  friend constexpr auto evaluate(op2 self, environment<Bindings...> env)
+  friend constexpr auto evaluate(const op2& self, const environment<Bindings...>& env)
   {
-    return self.op(evaluate(self.lhs, env), evaluate(self.rhs, env));
+    return self.f(evaluate(self.lhs, env), evaluate(self.rhs, env));
   }
 
   L lhs;
   R rhs;
-  F op;
+  F f;
 };
-
-
-// XXX this needs a requires(unevaluated_value_t<L> l, unevaluated_value_t<R> r) { l OP r; }
-//     this needs to be a hidden friend of variable and op1 and op2
-#define EXPRESSION_BINARY_OP(OP, FUNCTOR)\
-  template<unevaluated L, unevaluated R>\
-  constexpr op2<L,R,std::FUNCTOR<>> operator OP (L lhs, R rhs) { return {lhs, rhs, std::FUNCTOR()}; }
-
-EXPRESSION_BINARY_OP(+, plus);
-EXPRESSION_BINARY_OP(-, minus);
-EXPRESSION_BINARY_OP(*, multiplies);
-EXPRESSION_BINARY_OP(/, divides);
-EXPRESSION_BINARY_OP(%, modulus);
-
-#undef EXPRESSION_BINARY_OP
 
 
 template<detail::sl n, class T = int>
@@ -260,19 +262,87 @@ struct variable
   }
 
   template<class... Bindings>
-  friend constexpr auto evaluate(variable, environment<Bindings...> env)
+  friend constexpr auto evaluate(const variable&, const environment<Bindings...>& env)
   {
-    if constexpr (env.template contains<n>())
+    constexpr bool found = environment<Bindings...>::template contains<n>();
+
+    if constexpr (found)
     {
       return get<n>(env);
     }
     else
     {
-      static_assert(env.template contains<n>(), "evaluate(variable,env): variable name not found in environment.");
+      static_assert(found, "evaluate(variable,env): variable name not found in environment.");
       return;
     }
   }
 };
+
+struct unary_plus
+{
+  constexpr auto operator()(const auto& value) const
+  {
+    return +value;
+  }
+};
+
+template<unevaluated E>
+  requires requires(evaluated_t<E> value) { +value; }
+constexpr op1<E,unary_plus> operator+(const E& expr)
+{
+  return {expr, unary_plus()};
+}
+
+template<unevaluated E>
+  requires requires(evaluated_t<E> value) { -value; }
+constexpr op1<E,std::negate<>> operator-(const E& expr)
+{
+  return {expr, std::negate()};
+}
+
+template<unevaluated E>
+  requires requires(evaluated_t<E> value) { ~value; }
+constexpr op1<E,std::bit_not<>> operator~(const E& expr)
+{
+  return {expr, std::bit_not()};
+}
+
+template<class L, at_least_one_unevaluated<L> R>
+  requires requires(evaluated_t<L> lhs, evaluated_t<R> rhs) { lhs + rhs; }
+constexpr op2<L,R,std::plus<>> operator+(const L& lhs, const R& rhs)
+{
+  return {lhs, rhs, std::plus()};
+}
+
+template<class L, at_least_one_unevaluated<L> R>
+  requires requires(evaluated_t<L> lhs, evaluated_t<R> rhs) { lhs - rhs; }
+constexpr op2<L,R,std::minus<>> operator-(const L& lhs, const R& rhs)
+{
+  return {lhs, rhs, std::minus()};
+}
+
+template<class L, at_least_one_unevaluated<L> R>
+  requires requires(evaluated_t<L> lhs, evaluated_t<R> rhs) { lhs * rhs; }
+constexpr op2<L,R,std::multiplies<>> operator*(const L& lhs, const R& rhs)
+{
+  return {lhs, rhs, std::multiplies()};
+}
+
+template<class L, at_least_one_unevaluated<L> R>
+  requires requires(evaluated_t<L> lhs, evaluated_t<R> rhs) { lhs / rhs; }
+constexpr op2<L,R,std::divides<>> operator/(const L& lhs, const R& rhs)
+{
+  return {lhs, rhs, std::divides()};
+}
+
+template<class L, at_least_one_unevaluated<L> R>
+  requires requires(evaluated_t<L> lhs, evaluated_t<R> rhs) { lhs % rhs; }
+constexpr op2<L,R,std::modulus<>> operator%(const L& lhs, const R& rhs)
+{
+  return {lhs, rhs, std::modulus()};
+}
+
+#if defined(__cpp_user_defined_literals)
 
 // user-defined literal operator allows variable written as literals, For example,
 //
@@ -284,6 +354,8 @@ constexpr variable<n> operator""_v()
 {
   return {};
 }
+
+#endif // __cpp_user_defined_literals
 
 #if __has_include(<fmt/format.h>)
 
@@ -305,7 +377,7 @@ struct fmt::formatter<variable<n>>
   }
 };
 
-template<unevaluated E, std::invocable<unevaluated_value_t<E>> F>
+template<unevaluated E, std::invocable<evaluated_t<E>> F>
 struct fmt::formatter<op1<E,F>>
 {
   template<class ParseContext>
@@ -326,12 +398,16 @@ struct fmt::formatter<op1<E,F>>
     {
       op = '-';
     }
+    else if constexpr (std::same_as<F,std::bit_not<>>)
+    {
+      op = '~';
+    }
 
     return fmt::format_to(ctx.out(), "{}{}", op, expr.expr);
   }
 };
 
-template<unevaluated L, unevaluated R, std::invocable<unevaluated_value_t<L>, unevaluated_value_t<R>> F>
+template<class L, class R, std::invocable<evaluated_t<L>, evaluated_t<R>> F>
 struct fmt::formatter<op2<L,R,F>>
 {
   template<class ParseContext>
