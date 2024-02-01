@@ -208,14 +208,6 @@ constexpr T evaluate(const T& value, const environment<Bindings...>&)
   return value;
 }
 
-// at least one of A1 and A2 must be unevaluated
-template<class F, class A1, class A2>
-concept unevaluated_invocable = std::invocable<F, evaluated_t<A1>, evaluated_t<A2>>;
-
-template<class F, class A1, class A2>
-  requires unevaluated_invocable<F,A1,A2>
-using unevaluated_invocable_result_t = std::invoke_result_t<F, evaluated_t<A1>, evaluated_t<A2>>;
-
 
 template<unevaluated E, std::invocable<evaluated_t<E>> F>
 struct op1
@@ -250,7 +242,6 @@ struct op2
   R rhs;
   F f;
 };
-
 
 template<detail::sl n, class T = int>
 struct variable
