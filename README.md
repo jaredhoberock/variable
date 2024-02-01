@@ -8,13 +8,13 @@ For example, `variable<"block_size">` could be a placeholder in an arithmetic ex
 
     variable<"block_size"> block_size;
     auto num_blocks = ceil_div(block_size, n);
-    std::tuple unevaluated_launch_config(block_size, num_blocks);
+    std::tuple unevaluated_config(block_size, num_blocks);
 
-    // unevaluated_launch_config is an unevaluated expression of a variable "block_size"
+    // unevaluated_config is an unevaluated expression of a variable "block_size"
 
     ...
 
     // later, evaluate the launch configuration after choosing a block size
     int actual_block_size = choose_kernel_block_size();
     
-    std::tuple<int,int> launch_config = evaluate(unevaluated_launch_config, {"block_size", actual_block_size});
+    std::tuple<int,int> config = evaluate(unevaluated_config, {"block_size", actual_block_size});
