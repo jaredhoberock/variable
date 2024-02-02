@@ -147,13 +147,15 @@ int main()
   std::cout << foo << std::endl;
 
   // this prints "foo" to the terminal
-  std::cout << "foo"_v << std::endl;
+  // XXX operator""_v crashes circle
+  //std::cout << "foo"_v << std::endl;
 
   // this prints "foo" to the terminal
   fmt::print("{}\n", foo);
 
   // this prints "foo" to the terminal
-  fmt::print("{}\n", "foo"_v);
+  // XXX operator""_v crashes circle
+  //fmt::print("{}\n", "foo"_v);
 
   // this fails with a reasonable static_assert
 //  {

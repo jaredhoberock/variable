@@ -23,12 +23,12 @@ constexpr auto remove_tuple_element(const std::tuple<Ts...>& t)
 }
 
 // sl: abbreviation of string_literal
-template<auto N>
+template<auto len>
 struct sl
 {
-  constexpr sl(const char (&str)[N])
+  constexpr sl(const char (&str)[len])
   {
-    std::copy_n(str, N, value);
+    std::copy_n(str, len, value);
   }
 
   constexpr operator std::string_view() const
@@ -36,7 +36,7 @@ struct sl
     return {value};
   }
 
-  char value[N];
+  char value[len];
 };
 
 } // end detail
@@ -255,7 +255,8 @@ struct variable
 
   friend std::ostream& operator<<(std::ostream& os, variable self)
   {
-    return os << name;
+    // XXX use n.value because circle has troble with simply using name
+    return os << n.value;
   }
 
   template<class... Bindings>
@@ -346,8 +347,8 @@ constexpr op2<L,R,std::modulus<>> operator%(const L& lhs, const R& rhs)
 //     auto var = "block_size"_v;
 //
 // var has type variable<"block_size",int>.
-template<detail::sl n>
-constexpr variable<n> operator""_v()
+template<detail::sl name>
+constexpr variable<name> operator""_v() noexcept
 {
   return {};
 }
@@ -358,8 +359,9 @@ constexpr variable<n> operator""_v()
 
 #include <fmt/format.h>
 
-template<detail::sl n>
-struct fmt::formatter<variable<n>>
+#if defined(__circle_lang__)
+template<auto len, detail::sl<len> name>
+struct fmt::formatter<variable<name>>
 {
   template<class ParseContext>
   constexpr auto parse(ParseContext& ctx)
@@ -368,11 +370,28 @@ struct fmt::formatter<variable<n>>
   }
 
   template<class FormatContext>
-  auto format(const variable<n>& var, FormatContext& ctx)
+  auto format(const variable<name>&, FormatContext& ctx)
+  {
+    return fmt::format_to(ctx.out(), "{}", name);
+  }
+};
+#else
+template<detail::sl name>
+struct fmt::formatter<variable<name>>
+{
+  template<class ParseContext>
+  constexpr auto parse(ParseContext& ctx)
+  {
+    return ctx.begin();
+  }
+
+  template<class FormatContext>
+  auto format(const variable<name>& var, FormatContext& ctx)
   {
     return fmt::format_to(ctx.out(), "{}", var.name);
   }
 };
+#endif
 
 template<unevaluated E, std::invocable<evaluated_t<E>> F>
 struct fmt::formatter<op1<E,F>>
