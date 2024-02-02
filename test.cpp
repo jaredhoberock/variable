@@ -3,6 +3,12 @@
 #include <fmt/core.h>
 #include <iostream>
 
+template<class N, class D>
+constexpr auto ceil_div(N n, D d)
+{
+  return (n + d - 1) / d;
+}
+
 int main()
 {
   using namespace fmt;
@@ -140,6 +146,16 @@ int main()
       auto expr = foo / bar;
       assert("foo/bar" == format("{}", expr));
       assert((13 / 7) == evaluate(expr, new_env));
+    }
+
+    {
+      variable<"block_size"> block_size;
+      auto new_env = set<"block_size">(env, 128);
+
+      auto expr = ceil_div(12345, block_size);
+      // XXX formatting needs proper parentheses
+      assert("12345+block_size-1/block_size" == format("{}", expr));
+      assert(((12345+128-1)/128) == evaluate(expr, new_env));
     }
   }
 
