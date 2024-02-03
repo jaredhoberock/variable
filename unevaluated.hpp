@@ -36,13 +36,13 @@ template<class T>
 using evaluated_t = decltype(evaluate(std::declval<T>(), std::declval<environment>()));
 
 template<class T, class U>
-concept not_same_as = not std::same_as<T,U>;
+concept different_from = not std::same_as<T,U>;
 
 // a type is unevaluated if evaluating an instance would yield a different type
 template<class T>
 concept unevaluated = requires(T val, environment env)
 {
-  { evaluate(val, env) } -> not_same_as<T>;
+  { evaluate(val, env) } -> different_from<T>;
 };
 
 template<class L, class R>
