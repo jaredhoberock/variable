@@ -11,6 +11,7 @@
 #include <string_view>
 #include <tuple>
 
+// an environment is a binding of names to values
 using environment = std::map<std::string, std::any, std::less<>>;
 
 // evaluating any old value is just the identity
