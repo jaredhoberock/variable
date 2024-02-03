@@ -9,7 +9,8 @@ For example, `variable<"block_size">` could be a placeholder in an arithmetic ex
     variable<"block_size"> block_size;
     auto num_blocks = ceil_div(block_size, n);
 
-    fmt::print("num_blocks: {}\n", num_blocks); // "num_blocks: ((12345+block_size)-1)/block_size" is printed
+    fmt::print("num_blocks: {}\n", num_blocks);
+    // "num_blocks: ((12345+block_size)-1)/block_size" is printed
 
     std::tuple unevaluated_config(block_size, num_blocks);
 
