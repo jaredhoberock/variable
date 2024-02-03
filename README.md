@@ -4,10 +4,13 @@
 
 For example, `variable<"block_size">` could be a placeholder in an arithmetic expression which encodes a value dependent on the block size of a CUDA kernel launch before the shape of the launch has been decided:
 
-    std::size_t n = ...
+    std::size_t n = 12345;
 
     variable<"block_size"> block_size;
     auto num_blocks = ceil_div(block_size, n);
+
+    fmt::print("num_blocks: {}\n", num_blocks); // "num_blocks: ((12345+block_size)-1)/block_size" is printed
+
     std::tuple unevaluated_config(block_size, num_blocks);
 
     // unevaluated_config is an unevaluated expression of a variable "block_size"

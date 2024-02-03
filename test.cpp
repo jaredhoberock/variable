@@ -153,8 +153,7 @@ int main()
       auto new_env = set<"block_size">(env, 128);
 
       auto expr = ceil_div(12345, block_size);
-      // XXX formatting needs proper parentheses
-      assert("12345+block_size-1/block_size" == format("{}", expr));
+      assert("((12345+block_size)-1)/block_size" == format("{}", expr));
       assert(((12345+128-1)/128) == evaluate(expr, new_env));
     }
   }

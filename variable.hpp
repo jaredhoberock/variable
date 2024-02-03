@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 namespace detail
@@ -357,6 +358,20 @@ constexpr variable<name> operator""_v() noexcept
 
 #if __has_include(<fmt/format.h>)
 
+namespace detail
+{
+
+template<typename T, template<typename...> class Template>
+struct is_instantiation_of : std::false_type {};
+
+template<template<typename...> class Template, typename... Args>
+struct is_instantiation_of<Template<Args...>, Template> : std::true_type {};
+
+template<typename T, template<typename...> class Template>
+inline constexpr bool is_instantiation_of_v = is_instantiation_of<T,Template>::value;
+
+} // end detail
+
 #include <fmt/format.h>
 
 #if defined(__circle_lang__)
@@ -419,7 +434,10 @@ struct fmt::formatter<op1<E,F>>
       op = '~';
     }
 
-    return fmt::format_to(ctx.out(), "{}{}", op, expr.expr);
+    constexpr bool needs_parens = ::detail::is_instantiation_of_v<E,op1> or ::detail::is_instantiation_of_v<E,op2>;
+    constexpr auto format_string = needs_parens ? "{}({})" : "{}{}";
+
+    return fmt::format_to(ctx.out(), format_string, op, expr.expr);
   }
 };
 
@@ -457,7 +475,17 @@ struct fmt::formatter<op2<L,R,F>>
       op = '%';
     }
 
-    return fmt::format_to(ctx.out(), "{}{}{}", expr.lhs, op, expr.rhs);
+    constexpr bool lhs_needs_parens = ::detail::is_instantiation_of_v<L,op1> or ::detail::is_instantiation_of_v<L,op2>;
+    constexpr bool rhs_needs_parens = ::detail::is_instantiation_of_v<R,op1> or ::detail::is_instantiation_of_v<R,op2>;
+
+    constexpr auto format_string = 
+      (lhs_needs_parens and rhs_needs_parens)         ? "({}){}({})" :
+      (lhs_needs_parens and not rhs_needs_parens)     ? "({}){}{}"   :
+      (not lhs_needs_parens and rhs_needs_parens)     ? "{}{}({})"
+                                                      : "{}{}{}"
+    ;
+
+    return fmt::format_to(ctx.out(), format_string, expr.lhs, op, expr.rhs);
   }
 };
 
